@@ -58,6 +58,35 @@ class TemporalLinkPredictor(object):
     def score_edges(self, edges):
         pass
 
+class CommonNeighborsTemporalLinkPredictor(TemporalLinkPredictor):
+    def __init__(self, graph_nodes, graph_edges, directed=False):
+        if directed:
+            self.out_neighbors = {n: set() for n in graph_nodes}
+            self.in_neighbors = {n: set() for n in graph_nodes}
+        else:
+            self.neighbors = {n: set() for n in graph_nodes}
+        for (a, b, _, _) in graph_edges:
+            if directed:
+                self.out_neighbors[a].add(b)
+                self.in_neighbors[b].add(a)
+            else:
+                self.neighbors[a].add(b)
+                self.neighbors[b].add(a)
+        self.directed = directed
+
+    def score_edges(self, edges):
+        scores = []
+        for (a, b, _) in edges:
+            if self.directed:
+                scores.append(\
+                    len(self.out_neighbors[a] & self.in_neighbors[b]) + \
+                    len(self.out_neighbors[a] & self.out_neighbors[b]) + \
+                    len(self.in_neighbors[a] & self.in_neighbors[b]) + \
+                    len(self.in_neighbors[a] & self.out_neighbors[b]))
+            else:
+                scores.append(len(self.neighbors[a] & self.neighbors[b]))
+        return scores
+
 class TGNLinkPredictor(TemporalLinkPredictor):
     def __init__(self, tgn, neg_sampler, directed=True):
         self.tgn = tgn

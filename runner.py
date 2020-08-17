@@ -5,7 +5,7 @@ import time
 import pandas
 from typing import List, Tuple, Any
 
-from link_predictor import MatrixLinkPredictor, RandomLinkPredictor, CommonNeighborsStaticLinkPredictor, TGNLinkPredictor
+from link_predictor import MatrixLinkPredictor, RandomLinkPredictor, CommonNeighborsStaticLinkPredictor, CommonNeighborsTemporalLinkPredictor, TGNLinkPredictor
 import networkx as nx
 
 import evaluation
@@ -199,11 +199,16 @@ def other_runner(name: str, model: str, is_temporal: bool, is_directed: bool, id
         evaluation.score_link_predictor(predictor, test_edges_true, test_edges_false, aupr_extras, \
             name, is_directed, is_temporal, idx, model)
     elif model == 'CommonNeighbors':
-        assert not is_temporal
-        predictor = CommonNeighborsStaticLinkPredictor(nodes, train_edges, directed=is_directed)
+        if is_temporal:
+            predictor = CommonNeighborsTemporalLinkPredictor(nodes, train_edges, directed=is_directed)
 
-        evaluation.score_link_predictor(predictor, test_edges_true, test_edges_false, aupr_extras, \
-            name, is_directed, is_temporal, idx, model)
+            evaluation.score_link_predictor(predictor, test_edges_true, test_edges_false, aupr_extras, \
+                name, is_directed, is_temporal, idx, model)
+        else:
+            predictor = CommonNeighborsStaticLinkPredictor(nodes, train_edges, directed=is_directed)
+
+            evaluation.score_link_predictor(predictor, test_edges_true, test_edges_false, aupr_extras, \
+                name, is_directed, is_temporal, idx, model)
     else:
         subgraph_size = 4
         assert model == "SST_SVM"
@@ -264,15 +269,15 @@ def temporal_net_runner(name: str, model: str, is_temporal: bool, is_directed: b
     # reindex data for PyTorch
     nodes = [n + 1 for n in nodes]
     train_edges = [(u+1, v+1, ts+1, ctr) for ctr, (u, v, ts, w) in enumerate(train_edges, 1)]
-    max_idx = len(train_edges)
-    val_edges_true = [(u+1, v+1, ts+1, ctr) for ctr, (u, v, ts, w) in enumerate(val_edges_true, max_idx + 1)]
-    max_idx += len(val_edges_true)
-    test_edges_true = [(u+1, v+1, ts+1, ctr) for ctr, (u, v, ts, w) in enumerate(test_edges_true, max_idx + 1)]
-    max_idx += len(test_edges_true)
-    val_edges_false = [(u+1, v+1, ts+1, ctr) for ctr, (u, v, ts, w) in enumerate(val_edges_false, max_idx + 1)]
-    max_idx += len(val_edges_false)
-    test_edges_false = [(u+1, v+1, ts+1, ctr) for ctr, (u, v, ts, w) in enumerate(test_edges_false, max_idx + 1)]
-    max_idx += len(test_edges_false)
+    max_ctr = len(train_edges)
+    val_edges_true = [(u+1, v+1, ts+1, ctr) for ctr, (u, v, ts, w) in enumerate(val_edges_true, max_ctr + 1)]
+    max_ctr += len(val_edges_true)
+    test_edges_true = [(u+1, v+1, ts+1, ctr) for ctr, (u, v, ts, w) in enumerate(test_edges_true, max_ctr + 1)]
+    max_ctr += len(test_edges_true)
+    val_edges_false = [(u+1, v+1, ts+1, ctr) for ctr, (u, v, ts, w) in enumerate(val_edges_false, max_ctr + 1)]
+    max_ctr += len(val_edges_false)
+    test_edges_false = [(u+1, v+1, ts+1, ctr) for ctr, (u, v, ts, w) in enumerate(test_edges_false, max_ctr + 1)]
+    max_ctr += len(test_edges_false)
 
     # create the full dataframe
     full_edges = train_edges + val_edges_true + test_edges_true
@@ -290,13 +295,13 @@ def temporal_net_runner(name: str, model: str, is_temporal: bool, is_directed: b
         foo = read_aupr_extras(name=name, k=k, is_temporal=is_temporal, idx=idx, is_directed=is_directed)
         bar = []
         for chunk in foo:
-            temp = [(u+1, v+1, ts+1, ctr) for ctr, (u, v, ts, _) in enumerate(chunk, max_idx + 1)]
-            max_idx += len(temp)
+            temp = [(u+1, v+1, ts+1, ctr) for ctr, (u, v, ts, _) in enumerate(chunk, max_ctr + 1)]
+            max_ctr += len(temp)
             bar.append(temp)
         aupr_extras.append((k, tuple(bar)))
 
     # train the TGN model on the data split
-    tgn, neg_sampler = tgn_fit_model(full_df, nodes, train_edges, val_edges_true, val_edges_false, test_edges_true, test_edges_false, max_idx)
+    tgn, neg_sampler = tgn_fit_model(full_df, nodes, train_edges, val_edges_true, val_edges_false, test_edges_true, test_edges_false, max_ctr)
 
     tgn_link_predictor = TGNLinkPredictor(tgn=tgn, neg_sampler=neg_sampler)
 

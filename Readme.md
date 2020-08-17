@@ -150,11 +150,12 @@ To run the 3-node SST STMs, open `runner.py` and replace `subgraph_size = 4` wit
 
 To run the graph neural network:
 
-`./run_model_on_temporal_graphs.sh TGN --not_parallel`
+`./run_model_on_temporal_graphs.sh TGN --not_parallel --directed`
 
-To run the random baseline:
+To run the baselines:
 
-`./run_model_on_temporal_graphs.sh Random --not_parallel`
+`./run_model_on_temporal_graphs.sh Random --not_parallel --directed`
+`./run_model_on_temporal_graphs.sh CommonNeighbors --not_parallel --directed`
 
 ### Barabasi Albert SSTs
 
