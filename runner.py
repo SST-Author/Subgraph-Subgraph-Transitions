@@ -263,26 +263,26 @@ def temporal_net_runner(name: str, model: str, is_temporal: bool, is_directed: b
 
     # reindex data for PyTorch
     nodes = [n + 1 for n in nodes]
-    train_edges = [(u+1, v+1, ts+1, idx) for idx, (u, v, ts, w) in enumerate(train_edges, 1)]
+    train_edges = [(u+1, v+1, ts+1, ctr) for ctr, (u, v, ts, w) in enumerate(train_edges, 1)]
     max_idx = len(train_edges)
-    val_edges_true = [(u+1, v+1, ts+1, idx) for idx, (u, v, ts, w) in enumerate(val_edges_true, max_idx + 1)]
+    val_edges_true = [(u+1, v+1, ts+1, ctr) for ctr, (u, v, ts, w) in enumerate(val_edges_true, max_idx + 1)]
     max_idx += len(val_edges_true)
-    test_edges_true = [(u+1, v+1, ts+1, idx) for idx, (u, v, ts, w) in enumerate(test_edges_true, max_idx + 1)]
+    test_edges_true = [(u+1, v+1, ts+1, ctr) for ctr, (u, v, ts, w) in enumerate(test_edges_true, max_idx + 1)]
     max_idx += len(test_edges_true)
-    val_edges_false = [(u+1, v+1, ts+1, idx) for idx, (u, v, ts, w) in enumerate(val_edges_false, max_idx + 1)]
+    val_edges_false = [(u+1, v+1, ts+1, ctr) for ctr, (u, v, ts, w) in enumerate(val_edges_false, max_idx + 1)]
     max_idx += len(val_edges_false)
-    test_edges_false = [(u+1, v+1, ts+1, idx) for idx, (u, v, ts, w) in enumerate(test_edges_false, max_idx + 1)]
+    test_edges_false = [(u+1, v+1, ts+1, ctr) for ctr, (u, v, ts, w) in enumerate(test_edges_false, max_idx + 1)]
     max_idx += len(test_edges_false)
 
     # create the full dataframe
     full_edges = train_edges + val_edges_true + test_edges_true
     rows = {'u': [], 'i': [], 'ts': [], 'label': [], 'idx': []}
-    for u, i, ts, idx in full_edges:
+    for u, i, ts, ctr in full_edges:
         rows['u'].append(u)
         rows['i'].append(i)
         rows['ts'].append(ts)
         rows['label'].append(0.0)
-        rows['idx'].append(idx)
+        rows['idx'].append(ctr)
     full_df = pandas.DataFrame(rows)
 
     aupr_extras = []
@@ -290,7 +290,7 @@ def temporal_net_runner(name: str, model: str, is_temporal: bool, is_directed: b
         foo = read_aupr_extras(name=name, k=k, is_temporal=is_temporal, idx=idx, is_directed=is_directed)
         bar = []
         for chunk in foo:
-            temp = [(u+1, v+1, ts+1, idx) for idx, (u, v, ts, _) in enumerate(chunk, max_idx + 1)]
+            temp = [(u+1, v+1, ts+1, ctr) for ctr, (u, v, ts, _) in enumerate(chunk, max_idx + 1)]
             max_idx += len(temp)
             bar.append(temp)
         aupr_extras.append((k, tuple(bar)))
