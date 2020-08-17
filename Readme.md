@@ -55,10 +55,10 @@ See the Readme in the `evaluation_data_splits` folder for more details on the ou
 Use this for some quick-and-dirty testing to make sure everything is operable. Takes the famous karate graph and treats it as four different kinds of graphs, static-undirected, static-directed, temporal-undirected, temporal-directed.
 
 ```
-python evaluation_data_splits.py datasets/karate.g static undirected aupr_k=2:4 10 overwrite
-python evaluation_data_splits.py datasets/karate.g static directed aupr_k=2:4 10 overwrite
-python evaluation_data_splits.py datasets/karate-temporal.g temporal undirected aupr_k=2:4 10 overwrite
-python evaluation_data_splits.py datasets/karate-temporal.g temporal directed aupr_k=2:4 10 overwrite
+python evaluation_data_splits.py datasets/karate.g static undirected aupr_k=3 10 overwrite
+python evaluation_data_splits.py datasets/karate.g static directed aupr_k=3 10 overwrite
+python evaluation_data_splits.py datasets/karate-temporal.g temporal undirected aupr_k=3 10 overwrite
+python evaluation_data_splits.py datasets/karate-temporal.g temporal directed aupr_k=3 10 overwrite
 ```
 
 ## To Create all the Splits Used in the Paper
@@ -66,18 +66,18 @@ python evaluation_data_splits.py datasets/karate-temporal.g temporal directed au
 (Note that there is some randomness, so the splits will not be identical.)
 
 ```
-python evaluation_data_splits.py datasets/cora.g static undirected aupr_k=2:4 10 overwrite
-python evaluation_data_splits.py datasets/cora.g static directed aupr_k=2:4 10 overwrite
+python evaluation_data_splits.py datasets/cora.g static undirected aupr_k=3 10 overwrite
+python evaluation_data_splits.py datasets/cora.g static directed aupr_k=3 10 overwrite
 
-python evaluation_data_splits.py datasets/citeseer.g static undirected aupr_k=2:4 10 overwrite
-python evaluation_data_splits.py datasets/citeseer.g static directed aupr_k=2:4 10 overwrite
+python evaluation_data_splits.py datasets/citeseer.g static undirected aupr_k=3 10 overwrite
+python evaluation_data_splits.py datasets/citeseer.g static directed aupr_k=3 10 overwrite
 
-python evaluation_data_splits.py datasets/eucore.g static undirected aupr_k=2:4 10 overwrite
-python evaluation_data_splits.py datasets/eucore.g static directed aupr_k=2:4 10 overwrite
+python evaluation_data_splits.py datasets/eucore.g static undirected aupr_k=3 10 overwrite
+python evaluation_data_splits.py datasets/eucore.g static directed aupr_k=3 10 overwrite
 
-python evaluation_data_splits.py datasets/college-temporal.g temporal directed aupr_k=2:4 10 overwrite
+python evaluation_data_splits.py datasets/college-temporal.g temporal directed aupr_k=3 10 overwrite
 
-python evaluation_data_splits.py datasets/eucore-temporal.g temporal directed aupr_k=2:4 10 overwrite
+python evaluation_data_splits.py datasets/eucore-temporal.g temporal directed aupr_k=3 10 overwrite
 
 python evaluation_data_splits.py datasets/wiki-en-additions.g temporal undirected no_aupr 10 overwrite
 
