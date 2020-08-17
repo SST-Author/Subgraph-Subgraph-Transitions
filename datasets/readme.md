@@ -1,0 +1,53 @@
+# description of datasets
+## static
+- eucore
+    - properties
+        - directed
+        - nodes: `986`
+        - edges: `25571`
+    - list of edges `(u, v)` where researcher `u` has sent at least one email to `v`
+    - `https://snap.stanford.edu/data/email-Eu-core.html`
+- citeseer
+    - properties
+        - directed
+        - nodes: ~`3.3k`
+        - edges: `4536`
+    - list of edges `(u, v)` where paper `u` cites paper `v`
+    - `http://networkrepository.com/citeseer.php`
+- cora ML
+    - properties
+        - directed
+        - nodes: `2708`
+        - edges: `5429`
+    - list of edges `(u, v)` where paper `u` cites paper `v`
+    - `http://networkrepository.com/cora.php`
+## temporal
+- eucore-temporal
+    - properties
+        - directed, temporal
+        - nodes: `986`
+        - static edges: `24929`
+        - temporal edges: `332334`
+        - time span: `803` days
+    - list of attributed edges `(u, v, t)` where user `u` sent an email to user `v` at time `t`
+        - edge attributes `t` are natural number timestamps
+    - `https://snap.stanford.edu/data/email-Eu-core-temporal.html`
+- wiki-en-additions
+    - properties
+        - directed, temporal
+        - nodes: `100312`
+        - temporal edges: `1186779`
+        - time span: `230940` distinct timestamps
+    - list of attributed edges `(u, v, t)` where page `u` added a link to page `v` at time `t`
+        - edge attributes `t` are natural number timestamps
+    - `http://konect.cc/networks/link-dynamic-simplewiki/`
+- college-temporal
+    - properties
+        - directed, temporal
+        - nodes: `1899`
+        - static edges: `20296`
+        - temporal edges: `59835`
+        - time span: `193` days
+    - list of attributed edges `(u, v, t)` where student `u` sent student `v` a message at time `t`
+        - edge attributes `t` are natural number timestamps
+    - `https://snap.stanford.edu/data/CollegeMsg.html`
