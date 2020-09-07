@@ -29,12 +29,12 @@ Type "help", "copyright", "credits" or "license" for more information.
 ['auc', 'fprs', 'tprs']
 >>> auc_values_dict['auc']
 0.8163265306122449
->>> f = open("test_results/static/karate_undirected/SST_SVM_aupr_at_k2_0.pkl", "rb")
+>>> f = open("test_results/static/karate_undirected/SST_SVM_aupr_at_k3_0.pkl", "rb")
 >>> aupr_values_dict = pkl.load(f)
 >>> [key for key, value in aupr_values_dict.items()]
-['aupr', 'generous_aupr', 'stingy_aupr', 'recalls', 'precisions']
->>> aupr_values_dict['aupr']
-0.23185312228117738
+['proper_aupr', 'trapezoid_aupr', 'generous_aupr', 'stingy_aupr', 'recalls', 'precisions']
+>>> aupr_values_dict['proper_aupr']
+0.08538964348231645
 >>> f.close()
 >>> f = open("test_results/static/karate_undirected/SST_SVM_ssts_0.pkl", "rb")
 >>> sorted_weighted_ssts = pkl.load(f)
@@ -62,7 +62,9 @@ Type "help", "copyright", "credits" or "license" for more information.
 
 ### For AUPR:
 
-`aupr` -- the area under the precision-recall curve, calculated with the trapezoidal rule
+`proper_aupr` -- the area under the precision-recall curve, calculated with the solved integral of Davis and Goadrich's proper AUPR point interpolation methodology.
+
+`trapezoid_aupr` -- the area under the precision-recall curve, calculated with the trapezoidal rule
 
 `generous_aupr` -- for debugging -- denotes a calculation of aupr where the max of two y coordinates is used rather than the trapezoid rule
 

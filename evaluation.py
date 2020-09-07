@@ -31,9 +31,11 @@ def score_link_predictor(link_predictor, test_true_edges, test_false_edges, \
         precisions, recalls, thresholds = \
             metrics.precision_recall_curve(labels, scores, pos_label=1)
 
-        aupr = aupr_values_for_curve_points(precisions, recalls)
+        aupr = aupr_values_for_curve_points(precisions, recalls, \
+            N = len(aupr_test_false_edges), P = len(aupr_test_true_edges))
         print("aupr at k=%d" % k)
-        print({'aupr': aupr['aupr'], 'generous_aupr': aupr['generous_aupr'], \
+        print({'proper_aupr': aupr['proper_aupr'], 'trapezoid_aupr': \
+            aupr['trapezoid_aupr'], 'generous_aupr': aupr['generous_aupr'], \
             'stingy_aupr': aupr['stingy_aupr']})
         save_result("aupr_at_k%d" % k, aupr, graph_name, temporal, directed, \
             idx, model)
@@ -61,7 +63,63 @@ def get_score_and_label_vectors(link_predictor, true_edges, false_edges, model='
 
     return scores, labels
 
-def aupr_values_for_curve_points(precisions, recalls):
+def aupr_values_for_curve_points(precisions, recalls, N, P):
+    proper_aupr = 0.0
+    trapezoid_aupr = 0.0
+    generous_aupr = 0.0
+    stingy_aupr = 0.0
+    # Calculated from right to left!
+    for j in range(1, len(precisions)):
+        # Decreasing recall (right to left).
+        r0 = recalls[j - 1]
+        r1 = recalls[j]
+        # Increasing precision (bottom to top).
+        p0 = precisions[j - 1]
+        p1 = precisions[j]
+        trapezoid_aupr += (r0 - r1) * ((p0 + p1) / 2.0)
+        generous_aupr += (r0 - r1) * max(p0, p1)
+        stingy_aupr += (r0 - r1) * min(p0, p1)
+        assert (r0 - r1) >= 0
+        if r0 != r1:
+            # Uses the solved integral of area under two PR points obtained
+            #   via a conversion to ROC space with linear interpolation back
+            #   into PR space.
+            tpr_0 = r0
+            tpr_1 = r1
+            tp_0 = tpr_0 * P
+            tp_1 = tpr_1 * P
+            if p0 == 0.0:
+                fp_0 = float(N)
+            else:
+                fp_0 = (tp_0 / p0) - tp_0
+            if p1 == 0.0:
+                fp_1 = float(N)
+            else:
+                fp_1 = (tp_1 / p1) - tp_1
+            fpr_0 = fp_0 / N
+            fpr_1 = fp_1 / N
+            A = P * (tpr_0 - tpr_1)
+            B = P * tpr_1
+            C = P * (tpr_0 - tpr_1) + N * (fpr_0 - fpr_1)
+            if C == 0.0:
+                print("Info: Unexpected C == 0.0 in AUPR calculation " + \
+                    "(evaluation.py)")
+                continue
+            D = P * tpr_1 + N * fpr_1
+            part_one = A / C
+            if D > 0.0:
+                part_two = (1.0 / C) * (B - (A*D) / C) * math.log((C+D) / D)
+            else:
+                part_two = 0.0
+            area = (tpr_0 - tpr_1) * (part_one + part_two)
+            proper_aupr += area
+
+    values_dict = {'proper_aupr': proper_aupr, 'generous_aupr': generous_aupr, \
+            'stingy_aupr': stingy_aupr, 'trapezoid_aupr': trapezoid_aupr, \
+            'recalls': recalls, 'precisions': precisions}
+
+    return values_dict
+
     aupr = 0.0
     generous_aupr = 0.0
     stingy_aupr = 0.0
