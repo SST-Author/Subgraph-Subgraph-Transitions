@@ -1,8 +1,8 @@
 
 # The GraphChange class and its subclasses, EdgeAddition, EdgeDeletion,
 #   NodeAddition, and NodeDeletion, are used to model changes on the
-#   GraphData and DirectedGraphData classes. Each change has four methods
-#   available:
+#   GraphData and DirectedGraphData classes. Each change has the following
+#   methods available:
 #
 #   * perform() -- executes the change on `graph_data` -- note that
 #       for node deletion, the class object saves information on which nodes
@@ -157,49 +157,46 @@ class EdgeDeletion(GraphChange):
 
 class NodeAddition(GraphChange):
 
-    # In the case of a node addition, the new node is assumed to connect to a
-    #   single node.
-    # If the graph is directed, a source can be specified, indicating which
-    #   node points to which. If none is specified, the new node will be treated
-    #   as the source.
-    def __init__(self, graph_data, new_node, neighbor, source=None, \
+    # The new node may connect to zero or more nodes.
+    #
+    # Its connections can be indicated with a list of edges. If the graph is
+    #   directed, both (a, b) and (b, a) can be passed to form a bidrected edge.
+    def __init__(self, graph_data, new_node, new_edges, \
             timestamp=0, permanent=True):
         self.type = GraphChange.NODE_ADDITION
         self.graph_data = graph_data
         self.new_node = new_node
-        self.neighbor = neighbor
-        if (source is not None) and source == neighbor:
-            self.source = neighbor
-            self.target = new_node
-        else:
-            self.source = new_node
-            self.target = neighbor
+        self.new_edges = new_edges
         self.timestamp = timestamp
+
+        self.neighbor_nodes = list(set([a for (a,b) in new_edges]) | \
+                                   set([b for (a,b) in new_edges]))
 
     def perform(self):
         self.graph_data.add_node(self.new_node)
-        self.graph_data.add_edge(self.source, self.target)
+        for (source, target) in self.new_edges:
+            self.graph_data.add_edge(source, target)
 
     def undo(self):
         self.graph_data.delete_node(self.new_node)
 
     def nodes_affected_before(self):
-        return [self.neighbor]
+        return list(self.neighbor_nodes)
 
     def nodes_affected_after(self):
-        return [self.new_node, self.neighbor]
+        return self.neighbor_nodes + [self.new_node]
 
     def edges_affected_before(self):
         return []
 
     def edges_affected_after(self):
-        return [(self.source, self.target)]
+        return list(self.new_edges)
 
     def central_entity(self):
         return self.new_node
 
-    def neighbor(self):
-        return self.neighbor
+    def neighbors(self):
+        return self.neighbor_nodes
 
 class NodeDeletion(GraphChange):
 

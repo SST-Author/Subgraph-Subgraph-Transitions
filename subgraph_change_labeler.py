@@ -45,13 +45,13 @@ class SubgraphChangeLabeler:
     # `check_inputs` -- purely for diagnostic purposes, signals to check that
     #       some inputs are as expected. Disable for code speed.
     #
-    # `deletion_reduced` -- whether or not node deletions should consider
-    #       smaller subgraphs than the edge change and node addition cases.
-    #       This is an option because node deletion is not limited to cases
-    #       where the node has only a single edge (unlike node addition).
+    # `node_graphs_reduced` -- whether or not node additions/deletions should
+    #       consider smaller subgraphs than the edge change cases.
+    #       This is an option because node changes not limited to cases
+    #       where the node has only a single edge.
     #
-    #       NOTE: Code presently does not support setting `deletion_reduced` to
-    #           False if precompute is selected.
+    #       NOTE: Code presently does not support setting `node_graphs_reduced`
+    #           to False if precompute is selected.
     #
     # `precompute` -- whether or not the labeler should precompute all possible
     #       inputs so that it can more quickly label subgraphs. Note that if
@@ -59,10 +59,10 @@ class SubgraphChangeLabeler:
     #       total possible labels; it would only know the number of labels (i.e.
     #       distinct subgraph->subgraph changes) it has seen thus far.
     #
-    #       NOTE: precompute is presently broken and should not be used.
+    #       NOTE: IMPORTANT! precompute is presently BROKEN! Do not use.
     def __init__(self, graph_data, subgraph_size, \
             node_traits=[], edge_traits=[], differentiate_endpoints=False, \
-            check_inputs=True, deletion_reduced=True, precompute=True):
+            check_inputs=True, node_graphs_reduced=True, precompute=True):
 
         if check_inputs and precompute and subgraph_size < 3:
             raise ValueError("Error! Code requires subgraphs of size >= 3.")
@@ -71,18 +71,18 @@ class SubgraphChangeLabeler:
             raise ValueError("Error! Will not differentiate endpoints on a " + \
                 "directed graph. Set `differentiate_endpoints` to False.")
 
-        if (not deletion_reduced) and precompute:
+        if (not node_graphs_reduced) and precompute:
             raise ValueError("Error! Code currently does not support " + \
                 "precomputation combined with full-size deletion. Either " + \
-                "set `deletion_reduced` to True or `precompute` to False.")
+                "set `node_graphs_reduced` to True or `precompute` to False.")
 
-        self.__subgraph_size__ = subgraph_size
+        self.__edge_sst_size__ = subgraph_size
+        self.__node_sst_size__ = subgraph_size - int(node_graphs_reduced)
         self.__diff_ends__ = differentiate_endpoints
         self.__graph_data__ = graph_data
         self.__node_traits__ = node_traits
         self.__edge_traits__ = edge_traits
         self.__check_inputs__ = check_inputs
-        self.__deletion_modifier__ = 0 - int(deletion_reduced)
         self.__precompute__ = precompute
         self.__finished_labeling__ = False
 
@@ -119,10 +119,10 @@ class SubgraphChangeLabeler:
                 "after finish_labeling() is called.")
 
         if self.__check_inputs__:
-            if len(other_nodes) != self.__subgraph_size__ - 2:
+            if len(other_nodes) != self.__edge_sst_size__ - 2:
                 raise ValueError("Error! Expected `other_nodes` to be" +\
                     " of size %d, was %d." % \
-                    (self.__subgraph_size__ - 2, len(other_nodes)))
+                    (self.__edge_sst_size__ - 2, len(other_nodes)))
             if not self.__graph_data__.has_edge(edge[0], edge[1]):
                 raise ValueError("Error! graph_data not have edge " + \
                     str(edge) + "(Additions are required to be present in " + \
@@ -143,10 +143,10 @@ class SubgraphChangeLabeler:
                 "after finish_labeling() is called.")
 
         if self.__check_inputs__:
-            if len(other_nodes) != self.__subgraph_size__ - 2:
+            if len(other_nodes) != self.__edge_sst_size__ - 2:
                 raise ValueError("Error! Expected `other_nodes` to be" +\
                     " of size %d, was %d." % \
-                    (self.__subgraph_size__ - 2, len(other_nodes)))
+                    (self.__edge_sst_size__ - 2, len(other_nodes)))
             if not self.__graph_data__.has_edge(edge[0], edge[1]):
                 raise ValueError("Error! graph_data does not have edge " + \
                     str(edge))
@@ -156,64 +156,28 @@ class SubgraphChangeLabeler:
     # Input:
     #   `node` -- the node in the subgraph that is to be added -- note that
     #       `node` must be a node in the graph_data
-    #   `edge` -- the connection by which `node` will join
     #   `other_nodes` -- a list of the nodes forming the subgraph that are NOT
     #       mentioned in `edge`
     #
     # Output:
     #    (automorphism-invariant) label of the node addition
-    def label_node_addition(self, node, edge, other_nodes):
+    def label_node_addition(self, node, other_nodes):
         if self.__finished_labeling__:
             raise ValueError("Error! Cannot call label_node_addition() " + \
                 "after finish_labeling() is called.")
 
         if self.__check_inputs__:
-            if len(other_nodes) != self.__subgraph_size__ - 2:
-                raise ValueError("Error! Expected `other_nodes` to be" +\
-                    " of size %d, was %d." % \
-                    (self.__subgraph_size__ - 2, len(other_nodes)))
+            # NOTE: Here, for nodes, the subgraph size is usually 1 smaller
+            #   than for edge modifications.
+            if len(other_nodes) != self.__node_sst_size__ - 1:
+                raise ValueError("Error! Expected `other_nodes` to be" + \
+                    " of size %d, was %d." % (self.__node_sst_size__ - 1, \
+                    len(other_nodes)))
             if not self.__graph_data__.has_node(node):
                 raise ValueError("Error! Need graph_data to have node " +\
-                    ("%d in order to label it's addition." % node) + \
-                    "(Additions are required to be present in graph in " + \
-                    "order to label them.).")
-            if not self.__graph_data__.has_edge(edge[0], edge[1]):
-                raise ValueError("Error! graph_data not have edge " + \
-                    str(edge) + "(Additions are required to be present in " + \
-                    "graph in order to label them.).")
+                    ("%d in order to label its addition." % node))
 
-        # If directed, highlights go from source (0) to target (1).
-        # If undirected, both highlights are 0, unless differentiate endpoints
-        #   is set in which case the NEW NODE is given the highlight of 1. Note
-        #   that this is different from how edge changes are labeled.
-        if self.__graph_data__.is_directed():
-            highlights = {edge[0]: 0, edge[1]: 1}
-            special_nodes = [edge[0], edge[1]]
-        elif self.__diff_ends__:
-            non_node = edge[0]
-            if non_node == node:
-                non_node = edge[1]
-            highlights = {non_node: 0, node: 1}
-            special_nodes = [non_node, node]
-        else:
-            highlights = {edge[0]: 0, edge[1]: 0}
-            special_nodes = [edge[0], edge[1]]
-
-        if self.__precompute__:
-            graph_hash = self.__subgraph_representation__(\
-                special_nodes + other_nodes, highlights)
-        else:
-            (node_order, _) = self.__canonical_node_order__(\
-                special_nodes + other_nodes, highlights)
-            graph_hash = self.__subgraph_representation__(node_order,highlights)
-            if graph_hash not in self.__repr_to_label__[self.__ADD_NODE__]:
-                self.__repr_to_label__[self.__ADD_NODE__][graph_hash] = \
-                    self.__num_labels__[self.__ADD_NODE__]
-                self.__label_to_canonical_repr__[self.__ADD_NODE__][\
-                    self.__num_labels__[self.__ADD_NODE__]] = graph_hash
-                self.__num_labels__[self.__ADD_NODE__] += 1
-
-        return self.__repr_to_label__[self.__ADD_NODE__][graph_hash]
+        return self.__label_node_change__(node, other_nodes, self.__ADD_NODE__)
 
     # Input:
     #   `node` -- the node in the subgraph that is about to be deleted
@@ -222,49 +186,23 @@ class SubgraphChangeLabeler:
     #
     # Output:
     #    (automorphism-invariant) label of the node addition
-    #
-    # Note:
-    #    For computations concerns*, it is expected that the subgraph here is
-    #    smaller than the subgraphs for the other labeling functions because the
-    #    single node being deleted can have many connections whereas an added
-    #    node has only one connection.
-    #    * concerns for the application using this class, not this class itself
     def label_node_deletion(self, node, other_nodes):
         if self.__finished_labeling__:
             raise ValueError("Error! Cannot call label_node_deletion() " + \
                 "after finish_labeling() is called.")
 
         if self.__check_inputs__:
-            # NOTE: Here, for deletions, the subgraph size is usually 1 smaller
-            #   than for additions or edge modifications.
-            if len(other_nodes) != \
-                    self.__subgraph_size__ - 1 + self.__deletion_modifier__:
-                raise ValueError("Error! Expected `other_nodes` to be" +\
-                    " of size %d, was %d." % (self.__subgraph_size__ - 1 + \
-                    self.__deletion_modifier__, len(other_nodes)))
+            # NOTE: Here, for nodes, the subgraph size is usually 1 smaller
+            #   than for edge modifications.
+            if len(other_nodes) != self.__node_sst_size__ - 1:
+                raise ValueError("Error! Expected `other_nodes` to be" + \
+                    " of size %d, was %d." % (self.__node_sst_size__ - 1, \
+                    len(other_nodes)))
             if not self.__graph_data__.has_node(node):
                 raise ValueError("Error! Need graph_data to have node " +\
-                    ("%d in order to label it's deletion." % node))
+                    ("%d in order to label its deletion." % node))
 
-        # Deleted node given a highlight of 0.
-        highlights = {node: 0}
-        special_nodes = [node]
-        
-        if self.__precompute__:
-            graph_hash = self.__subgraph_representation__(\
-                special_nodes + other_nodes, highlights)
-        else:
-            (node_order, _) = self.__canonical_node_order__(\
-                special_nodes + other_nodes, highlights)
-            graph_hash = self.__subgraph_representation__(node_order,highlights)
-            if graph_hash not in self.__repr_to_label__[self.__DEL_NODE__]:
-                self.__repr_to_label__[self.__DEL_NODE__][graph_hash] = \
-                    self.__num_labels__[self.__DEL_NODE__]
-                self.__label_to_canonical_repr__[self.__DEL_NODE__][\
-                    self.__num_labels__[self.__DEL_NODE__]] = graph_hash
-                self.__num_labels__[self.__DEL_NODE__] += 1
-
-        return self.__repr_to_label__[self.__DEL_NODE__][graph_hash]
+        return self.__label_node_change__(node, other_nodes, self.__DEL_NODE__)
 
     # Input:
     #   `label` -- One of the labels the labeler provides.
@@ -326,31 +264,23 @@ class SubgraphChangeLabeler:
         local_change_type = self.__official_change_type_to_local__(change_type)
         return self.__num_labels__[local_change_type]
 
-    # Returns all the different subgraph -> subgraph possibilities for adding
-    #   an edge.
+    # Returns number of different known subgraph -> subgraph possibilities for
+    #   deleting an edge.
     def number_of_edge_deletion_cases(self):
         return self.__num_labels__[self.__DEL_EDGE__]
 
-    # Returns all the different subgraph -> subgraph possibilities for adding
-    #   an edge.
+    # Returns number of different known subgraph -> subgraph possibilities for
+    #   adding an edge.
     def number_of_edge_addition_cases(self):
         return self.__num_labels__[self.__ADD_EDGE__]
 
-    # Assumes a node joins by connecting to a single other node.
-    #
-    # Since one node has zero neighbors, this is similar to finding the number
-    #   of distinct automorphism orbits on graphs one node smaller than those
-    #   graphs considered for edge modifications.
-    #
-    # In an undirected graph with no node or edge properties, this should be
-    #   the same number as the number of node deletion cases.
+    # Returns number of different known subgraph -> subgraph possibilities for
+    #   adding a node.
     def number_of_node_addition_cases(self):
         return self.__num_labels__[self.__ADD_NODE__]
 
-    # Assumes a node can be deleted at any time.
-    #
-    # If `deletion_modifier` is -1 (`deletion_reduced` was True in constructor)
-    #   then this looks at one fewer nodes than the normal subgraph_size.
+    # Returns number of different known subgraph -> subgraph possibilities for
+    #   deleting a node.
     def number_of_node_deletion_cases(self):
         return self.__num_labels__[self.__DEL_NODE__]
 
@@ -400,10 +330,27 @@ class SubgraphChangeLabeler:
                     self.__num_labels__[change_type]] = graph_hash
                 self.__num_labels__[change_type] += 1
 
-        # print(graph_hash)
-        # edge_lists = [gh[5] for gh, label in self.__repr_to_label__[change_type].items()]
-        # for edge_list in edge_lists:
-        #     print("%s ----- %s" % (edge_list, edge_list == graph_hash[5]))
+        return self.__repr_to_label__[change_type][graph_hash]
+
+    def __label_node_change__(self, node, other_nodes, change_type):
+        # Changed node given a highlight of 0.
+        highlights = {node: 0}
+        special_nodes = [node]
+        
+        if self.__precompute__:
+            graph_hash = self.__subgraph_representation__(\
+                special_nodes + other_nodes, highlights)
+        else:
+            (node_order, _) = self.__canonical_node_order__(\
+                special_nodes + other_nodes, highlights)
+            graph_hash = self.__subgraph_representation__(node_order,highlights)
+            if graph_hash not in self.__repr_to_label__[change_type]:
+                self.__repr_to_label__[change_type][graph_hash] = \
+                    self.__num_labels__[change_type]
+                self.__label_to_canonical_repr__[change_type][\
+                    self.__num_labels__[change_type]] = graph_hash
+                self.__num_labels__[change_type] += 1
+
         return self.__repr_to_label__[change_type][graph_hash]
 
     def __enumerate_and_label_all_possible_inputs__(self):
@@ -428,7 +375,7 @@ class SubgraphChangeLabeler:
         # Node deletion cases will add only one more node: the node being
         #   deleted.
 
-        partial_size = self.__subgraph_size__ - 2
+        partial_size = self.__edge_sst_size__ - 2
         enumeration_nodes = [i for i in range(0, partial_size)]
 
         for node in enumeration_nodes:
@@ -654,15 +601,15 @@ class SubgraphChangeLabeler:
                 graph_trait_bank = set()
 
                 graph_list_wo_traits = graph_lists_wo_traits[change_type_idx]
-                graph_list_with_traits = graph_lists_with_traits[change_type_idx]
+                graph_list_with_traits =graph_lists_with_traits[change_type_idx]
 
                 for graph in graph_list_wo_traits:
 
                     nodes = [i for i in range(0, graph.num_nodes())]
                     edges = []
-                    for i in range(0, self.__subgraph_size__):
+                    for i in range(0, self.__edge_sst_size__):
                         for j in range((i + 1) * (1 - directed), \
-                                self.__subgraph_size__):
+                                self.__edge_sst_size__):
                             if graph.has_edge(i, j):
                                 edges.append((i, j))
 
@@ -762,7 +709,7 @@ class SubgraphChangeLabeler:
             num_nodes = graph_lists_with_traits[change_type][0].num_nodes()
             nodes = [i for i in range(0, num_nodes)]
 
-            num_highlight_nodes = 1 + int(num_nodes == self.__subgraph_size__)
+            num_highlight_nodes = 1 + int(num_nodes == self.__edge_sst_size__)
             num_other_nodes = num_nodes - num_highlight_nodes
 
             other_nodes_orders = \
@@ -806,9 +753,12 @@ class SubgraphChangeLabeler:
 
         self.__num_labels__[3] = self.__num_labels__[2]
 
-        change_type_names = ["node deletion", "node addition", "edge deletion", "edge addition"]
+        change_type_names = ["node deletion", "node addition", \
+                             "edge deletion", "edge addition"]
         for change_type in range(0, 4):
-            print("Number %s cases with possible input orders: %d" % (change_type_names[change_type], len(self.__repr_to_label__[change_type])))
+            print("Number %s cases with possible input orders: %d" % \
+                (change_type_names[change_type], \
+                 len(self.__repr_to_label__[change_type])))
 
 
     # Assumes of `nodes` that if order matters, the nodes are in that order.
@@ -1007,8 +957,8 @@ class SubgraphChangeLabeler:
 
         # Used to allow (a, b) and (b, a) to have same value even if
         #   guaranteed_unique is set to True in an undirected graph.
-        reverse_edge_exception = \
-            (type(elements[0]) is tuple) and not self.__graph_data__.is_directed()
+        reverse_edge_exception = (type(elements[0]) is tuple) and \
+            not self.__graph_data__.is_directed()
         if reverse_edge_exception:
             past_elt_reverse = trait_element_pairings[0][1]
             past_elt_reverse = (past_elt_reverse[1], past_elt_reverse[0])
@@ -1067,4 +1017,4 @@ if __name__ == "__main__":
     # node_traits = []
     # edge_traits = []
     SCL = SubgraphChangeLabeler(GD, 4, node_traits=node_traits, edge_traits=edge_traits, \
-        deletion_reduced=True, differentiate_endpoints=True)
+        node_graphs_reduced=True, differentiate_endpoints=True)

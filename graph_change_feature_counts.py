@@ -63,12 +63,12 @@ class GraphChangeFeatureCounter:
     #                   return node_b
     #               ... some other criterion ...
     #
-    # `deletion_reduced` -- whether or not node deletions should consider
+    # `node_graphs_reduced` -- whether or not node deletions should consider
     #       smaller subgraphs than the edge change and node addition cases.
     #       This is an option because node deletion is not limited to cases
     #       where the node has only a single edge (unlike node addition).
     #
-    #       Note that, as of the writing of this comment, `deletion_reduced` is
+    #       Note that, as of the writing of this comment, `node_graphs_reduced` is
     #       incompatible with precomputation.
     #
     # `precompute` -- used to signal whether the subgraph change labeler should
@@ -86,7 +86,7 @@ class GraphChangeFeatureCounter:
             apply_deletions_while_labeling=False,
             node_traits=[], edge_traits=[], \
             node_trait_updaters=[], edge_trait_updaters=[], \
-            differentiate_endpoints=None, deletion_reduced=True,\
+            differentiate_endpoints=None, node_graphs_reduced=True,\
             precompute=False, use_counts=True, num_processes=4):
 
         print("Initializing GraphChangeFeatureCounter object.")
@@ -95,10 +95,10 @@ class GraphChangeFeatureCounter:
             raise ValueError("Error! Will not differentiate endpoints on a " + \
                 "directed graph. Set `differentiate_endpoints` to False.")
 
-        if (not deletion_reduced) and precompute:
+        if (not node_graphs_reduced) and precompute:
             raise ValueError("Error! Code currently does not support " + \
                 "precomputation combined with full-size deletion. Either set "+\
-                "`deletion_reduced` to True or `precompute` to False or None.")
+                "`node_graphs_reduced` to True or `precompute` to False or None.")
 
         if len(node_trait_updaters) > 0 and \
                 len(node_trait_updaters) != len(node_traits):
@@ -113,7 +113,7 @@ class GraphChangeFeatureCounter:
         self.__subgraph_size__ = subgraph_size
         self.__diff_ends__ = differentiate_endpoints
         self.__graph_data__ = graph_data
-        self.__deletion_reduced__ = deletion_reduced
+        self.__node_graphs_reduced__ = node_graphs_reduced
 
         self.__use_counts__ = use_counts
 
@@ -172,7 +172,7 @@ class GraphChangeFeatureCounter:
                 node_traits=self.__node_traits__, \
                 edge_traits=self.__edge_traits__, \
                 differentiate_endpoints=(self.__diff_ends__ is not None), \
-                check_inputs=True, deletion_reduced=self.__deletion_reduced__, \
+                check_inputs=True, node_graphs_reduced=self.__node_graphs_reduced__, \
                 precompute=self.__precompute__)
         print("  SubgraphChangeLabeler initialization complete.")
 
@@ -320,11 +320,20 @@ class GraphChangeFeatureCounter:
         for change_type_idx in range(0, 4):
             for (d, idx) in subgraph_to_subgraph_counts_dicts[change_type_idx]:
                 if idx in change_indices:
-                    change_counts_dicts[change_type_idx].append(d)
+                    change_counts_dicts[change_type_idx].append((idx, d))
                 elif idx in null_indices:
-                    null_counts_dicts[change_type_idx].append(d)
+                    null_counts_dicts[change_type_idx].append((idx, d))
                 else:
-                    non_counts_dicts[change_type_idx].append(d)
+                    non_counts_dicts[change_type_idx].append((idx, d))
+            change_counts_dicts[change_type_idx].sort()
+            null_counts_dicts[change_type_idx].sort()
+            non_counts_dicts[change_type_idx].sort()
+            change_counts_dicts[change_type_idx] = \
+                [d for (idx, d) in change_counts_dicts[change_type_idx]]
+            null_counts_dicts[change_type_idx] = \
+                [d for (idx, d) in null_counts_dicts[change_type_idx]]
+            non_counts_dicts[change_type_idx] = \
+                [d for (idx, d) in non_counts_dicts[change_type_idx]]
 
         return (change_counts_dicts, null_counts_dicts, non_counts_dicts)
 
@@ -362,7 +371,7 @@ class GraphChangeFeatureCounter:
                 node_traits=self.__node_traits__, \
                 edge_traits=self.__edge_traits__, \
                 differentiate_endpoints=(self.__diff_ends__ is not None), \
-                check_inputs=True, deletion_reduced=self.__deletion_reduced__, \
+                check_inputs=True, node_graphs_reduced=self.__node_graphs_reduced__, \
                 precompute=False)
         return c
 
@@ -454,41 +463,32 @@ class GraphChangeFeatureCounter:
         counts = {}
         entity = change.central_entity()
 
-        if change.get_type() == GraphChange.NODE_ADDITION:
-            change_type_idx = 0
-
-            nodes = [entity] + list(self.__graph_data__.neighbors(entity))
-            target_size = self.__subgraph_size__
-
-            node = entity
-            edge = (nodes[0], nodes[1])
-            if self.__graph_data__.is_directed() and \
-                    not self.__graph_data__.has_edge(edge[0], edge[1]):
-                edge = (nodes[1], nodes[0])
-
-            for other_nodes_list in \
-                    self.__surrounding_subgraphs__(nodes, target_size):
-                label = self.__change_labeler__.label_node_addition(\
-                    node, edge, other_nodes_list)
-                if label not in counts:
-                    counts[label] = 0
-                counts[label] += 1
-
-        elif change.get_type() == GraphChange.NODE_DELETION:
-            change_type_idx = 3
+        if change.get_type() == GraphChange.NODE_ADDITION or \
+                change.get_type() == GraphChange.NODE_DELETION:
 
             nodes = [entity]
             target_size = \
-                self.__subgraph_size__ - int(self.__deletion_reduced__)
-
+                self.__subgraph_size__ - int(self.__node_graphs_reduced__)
             node = entity
-            for other_nodes_list in \
-                    self.__surrounding_subgraphs__(nodes, target_size):
-                label = self.__change_labeler__.label_node_deletion(\
-                    node, other_nodes_list)
-                if label not in counts:
-                    counts[label] = 0
-                counts[label] += 1
+
+            if change.get_type() == GraphChange.NODE_ADDITION:
+                change_type_idx = 0
+                for other_nodes_list in \
+                        self.__surrounding_subgraphs__(nodes, target_size):
+                    label = self.__change_labeler__.label_node_addition(\
+                        node, other_nodes_list)
+                    if label not in counts:
+                        counts[label] = 0
+                    counts[label] += 1
+            else:  # Node Deletion
+                change_type_idx = 0
+                for other_nodes_list in \
+                        self.__surrounding_subgraphs__(nodes, target_size):
+                    label = self.__change_labeler__.label_node_deletion(\
+                        node, other_nodes_list)
+                    if label not in counts:
+                        counts[label] = 0
+                    counts[label] += 1
 
         else: # EDGE_ADDITION or EDGE_DELETION
             nodes = list(entity)
@@ -863,21 +863,35 @@ if __name__ == "__main__":
     for i in range(0, 10):
         gd.add_node(i)
 
+    # A (directed) clique of nodes 0 through 5.
     for i in range(0, 6):
         for j in range(i + 1, 6):
             gd.add_edge(i, j)
 
-    gd.add_edge(0, 6)
+    # A (directed) loop of nodes 0 -> 1 -> 6 -> 7 -> 8 -> 9 -> 0
+    gd.add_edge(1, 6)
     gd.add_edge(6, 7)
     gd.add_edge(7, 8)
     gd.add_edge(8, 9)
-    gd.add_edge(9, 1)
+    gd.add_edge(9, 0)
 
-    changes = [NodeAddition(gd, 10, 0, source=10), EdgeAddition(gd, 0, 8), EdgeAddition(gd, 0, 7), EdgeDeletion(gd, 0, 3), NodeDeletion(gd, 4)]
+    changes = [NodeAddition(gd, 10, [(10, 0), (0, 10), (10, 1)], timestamp=0), NodeAddition(gd, 11, [(2, 11), (10, 11)], timestamp=1), \
+               EdgeAddition(gd, 0, 8), EdgeAddition(gd, 0, 7), \
+               EdgeDeletion(gd, 0, 3), \
+               NodeDeletion(gd, 4)]
 
-    GCFC = GraphChangeFeatureCounter(gd, subgraph_size=4, use_counts=True, precompute=False)
-    (counts, _, _) = GCFC.get_change_counts(changes, [], [])
+    non_changes = [NodeAddition(gd, 12, [(12, 3)], timestamp=0)] 
+
+    GCFC = GraphChangeFeatureCounter(gd, subgraph_size=4, use_counts=True, precompute=False, node_graphs_reduced=False)
+    (counts, _, non_counts) = GCFC.get_change_counts(changes, [], non_changes)
     print(counts[0])
     print(counts[1])
     print(counts[2])
     print(counts[3])
+
+    print("")
+    print(non_counts[0])
+
+    sst_labeler = GCFC.get_subgraph_change_labeler()
+    for label, count in counts[0][0].items():
+        print(sst_labeler.get_representative_subgraph_change_from_label(label, GraphChange.NODE_ADDITION))
