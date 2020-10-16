@@ -1,6 +1,6 @@
 # Subgraph-Subgraph Transitions ("SSTs")
 
-Corresponds to the paper: "Joint Subgraph-to-Subgraph Transitions -- Generalizing Triadic Closure for Interpretable Graph Modeling" at (Waiting for Paper Acceptance to add Link).
+Corresponds to the paper [Joint Subgraph-to-Subgraph Transitions -- Generalizing Triadic Closure for Interpretable Graph Modeling](https://arxiv.org/abs/2009.06770) by Justus Hibshman, Daniel Gonzalez, Satyaki Sikdar, and Tim Weninger. (To be published at WSDM 2021.)
 
 ![Example of SSTs](https://github.com/SST-Author/Subgraph-Subgraph-Transitions/blob/master/images/first_paper_figure.png?raw=true)
 
@@ -168,7 +168,3 @@ To run the 3-node SST STMs, open `runner.py` and replace `subgraph_size = 4` wit
 ## Inspecting Test Results
 
 To see information on loading test results, check out the Readme in the `test_results` folder.
-
-## Thanks and Citations
-
-TODO: Add citations to the graphs in our datasets.
